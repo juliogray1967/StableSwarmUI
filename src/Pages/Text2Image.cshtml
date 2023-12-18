@@ -1,0 +1,606 @@
+﻿@page
+@{
+    ViewData["Title"] = "Image Generation";
+}
+@section Header {
+    <link rel="stylesheet" href="/css/genpage.css?vary=@Utilities.VaryID" />
+}
+
+@if (!Program.ServerSettings.IsInstalled)
+{
+    <script>
+        window.location.href = "/Install";
+    </script>
+    return;
+}
+
+<ul class="nav nav-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <a class="nav-link active" data-bs-toggle="tab" href="#Text2Image" id="text2imagetabbutton" aria-selected="true" role="tab">Generate</a>
+    </li>
+    @WebServer.T2ITabHeader
+    <li class="nav-item" role="presentation">
+        <a class="nav-link" data-bs-toggle="tab" href="#Utilities-Tab" id="utilitiestabbutton" aria-selected="false" tabindex="-1" role="tab">Utilities</a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link" data-bs-toggle="tab" href="#User-Settings" id="usersettingstabbutton" aria-selected="false" tabindex="-1" role="tab">User</a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link" data-bs-toggle="tab" href="#server_tab_body" id="servertabbutton" aria-selected="false" tabindex="-1" role="tab">Server</a>
+    </li>
+</ul>
+<div class="tab-content tab-hundred">
+    <div class="tab-pane show active" id="Text2Image" role="tabpanel">
+        <div class="t2i-top-bar-container">
+            <div class="t2i-top-bar" id="t2i_top_bar">
+                <div class="input-sidebar" id="input_sidebar">
+                    <br><span class="interrupt_line"></span>
+                    <div class="main_inputs_area_wrapper" id="main_inputs_area_wrapper">
+                        <div id="main_inputs_area"></div>
+                        <div id="main_inputs_area_advanced" class="main_inputs_area_advanced" style="display:none;"></div>
+                        <div id="main_inputs_area_hidden" class="main_inputs_area_hidden"></div>
+                        <div style="height: 10rem;"></div> <!-- Spacer -->
+                    </div>
+                    <div class="advanced_input_checkbox">
+                        <input type="checkbox" id="advanced_options_checkbox" onclick="toggle_advanced()"/>
+                        <span onclick="toggle_advanced_checkbox_manual()">Display Advanced Options?</span>
+                    </div>
+                </div>
+                <div class="t2i-top-split-bar splitter-bar" id="t2i-top-split-bar"><div class="t2i-split-quickbutton t2i-top-split-quickbutton" id="t2i-top-split-quickbutton">&#x21DA;</div></div>
+                <div class="main-image-area" id="main_image_area">
+                    <div class="image_editor_input" id="image_editor_input" style="display:none;"></div><div class="current_image" id="current_image"><div id="welcome_message" class="welcome_message">@(new HtmlString(Program.ServerSettings.UI.OverrideWelcomeMessage))</div></div><div class="t2i-top-split-bar splitter-bar" id="t2i-top-2nd-split-bar"></div>
+                    <div class="current_image_batch" id="current_image_batch_wrapper">
+                        <div style="position: relative; width: 0; height: 0;">
+                            <div class="batch-gear-button" onclick="doPopover('batchgear')">&#9881;</div>
+                        </div>
+                        <div class="sui-popover sui_popover_model" id="popover_batchgear">
+                            <div class="batchgear-toggler" title="Clears the batch view.">
+                                <button class="interrupt-button" id="clear_batch_button" onclick="clearBatch()">Clear Batch</button>
+                            </div>
+                            <div class="batchgear-toggler" title="If enabled, automatically clears out the image batch when generating a new one. If disabled, leaves history to grow until you refresh the page.">
+                                <span class="form-check form-switch display-inline-block">
+                                    <input type="checkbox" class="form-check-input" id="auto_clear_batch_checkbox" onchange="toggleAutoClearBatch()"> <label class="form-check-label" for="auto_clear_batch_checkbox">Auto Clear Batch</label>
+                                </span>
+                            </div>
+                            <div class="batchgear-toggler" title="If enabled, automatically swaps to previews of new images the moment they're available, before the image itself is done generating.">
+                                <span class="form-check form-switch display-inline-block">
+                                    <input type="checkbox" class="form-check-input" id="auto_load_previews_checkbox" onchange="toggleAutoLoadPreviews()" checked=""> <label class="form-check-label" for="auto_load_previews_checkbox">Auto Swap To Previews</label>
+                                </span>
+                            </div>
+                        </div>
+                        <div id="current_image_batch"></div>
+                    </div>
+                    <div class="alt_prompt_region" id="alt_prompt_region">
+                        <div id="alt_prompt_extra_area" class="alt_prompt_extra_area">
+                            <button class="interrupt-button image-clear-button" style="display: none;" id="alt_prompt_image_clear_button">Clear Images</button>
+                            <div class="added-image-area alt-prompt-added-image-area" id="alt_prompt_image_area"></div>
+                        </div>
+                        <div class="alt_prompt_main_line">
+                            <span class="alt-text-tokencount-wrapper"><span class="auto-input-prompt-tokencount alt-text-tokencount" title="Text-Encoder token count / chunk-size">0/75</span></span>
+                            <textarea id="alt_prompt_textbox" class="alt_prompt_textbox" rows="1" placeholder="Type your prompt here... (or, drag an image in to use ReVision)"></textarea>
+                            <button class="alt-prompt-buttons alt-prompt-generate-button basic-button" id="alt_generate_button" oncontextmenu="doPopover('generate'); return false;" onclick="doGenerate()">Generate</button>
+                            <button class="alt-prompt-buttons alt-prompt-center-button basic-button" id="alt_center_button" oncontextmenu="doPopover('generate_center'); return false;" onclick="doPopover('generate_center')">&#x2B9F;</button>
+                            <button class="alt-prompt-buttons interrupt-button interrupt-button-none alt-interrupt" id="alt_interrupt_button" oncontextmenu="doPopover('interrupt'); return false;" onclick="doInterrupt()">&times;</button>
+                        </div>
+                    </div>
+                    <div class="sui-popover sui_popover_model" id="popover_generate_center">
+                        <div class="sui_popover_model_button" onclick="doGenerate()">Generate</div>
+                        <div class="sui_popover_model_button" id="generate_forever_button" onclick="toggleGenerateForever()">Generate Forever</div>
+                        <div class="sui_popover_model_button" id="generate_previews_button" onclick="toggleGeneratePreviews()">Generate Previews</div>
+                        <div class="sui_popover_model_button" onclick="doInterrupt()">Interrupt Current Session</div>
+                        <div class="sui_popover_model_button" onclick="doInterrupt(true)">Interrupt All Sessions</div>
+                        <div class="sui_popover_model_button" onclick="showPromptTokenizen('alt_prompt_textbox')">Show Prompt Tokenization</div>
+                    </div>
+                    <div class="sui-popover sui_popover_model" id="popover_generate">
+                        <div class="sui_popover_model_button" onclick="doGenerate()">Generate</div>
+                        <div class="sui_popover_model_button" id="generate_forever_button" onclick="toggleGenerateForever()">Generate Forever</div>
+                        <div class="sui_popover_model_button" id="generate_previews_button" onclick="toggleGeneratePreviews()">Generate Previews</div>
+                    </div>
+                    <div class="sui-popover sui_popover_model" id="popover_interrupt">
+                        <div class="sui_popover_model_button" onclick="doInterrupt()">Interrupt Current Session</div>
+                        <div class="sui_popover_model_button" onclick="doInterrupt(true)">Interrupt All Sessions</div>
+                    </div>
+                </div>
+                <div class="model-block-menu-button t2i-area-quicktools" onclick="doPopover('quicktools')">Quick Tools</div>
+                <div class="sui-popover sui_popover_model" id="popover_quicktools">
+                    <div class="sui_popover_model_button" onclick="resetPageSizer()">Reset Page Layout</div>
+                    <div class="sui_popover_model_button" onclick="refreshParameterValues()">Reload Parameter Values</div>
+                    <div class="sui_popover_model_button" onclick="resetParamsToDefault()">Reset Params to Default</div>
+                    <div class="sui_popover_model_button" onclick="openEmptyEditor()">Open Empty Image Editor</div>
+                    <div class="sui_popover_model_button" onclick="doInterrupt()">Interrupt Current Session</div>
+                    <div class="sui_popover_model_button" onclick="doInterrupt(true)">Interrupt All Sessions</div>
+                    <div class="sui_popover_model_button" onclick="forceShowWelcomeMessage()">Reshow Welcome Message</div>
+                </div>
+                @WebUtil.ModalHeader("gen_previews_missing_preset_modal", "Missing Preview Preset")
+                    <div class="modal-body">
+                        To generate previews properly, please create a Preset and title it exactly "Preview"
+                        <br>It is recommended that this preset be configured to use a fast-generation method such as LCM or Turbo.
+                        <br>Your preset named exactly "Preview" will automatically be used when generating previews, and ignored when you click Generate to generate a full image.
+                        <br><div id="gen_previews_autobutton"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary basic-button" onclick="toggleGeneratePreviews(true);$('#gen_previews_missing_preset_modal').modal('hide')">Start Anyway</button>
+                        <button type="button" class="btn btn-secondary" onclick="$('#gen_previews_missing_preset_modal').modal('hide')">Cancel</button>
+                    </div>
+                @WebUtil.ModalFooter()
+            </div>
+        </div>
+        <div class="t2i-mid-split-bar splitter-bar" id="t2i-mid-split-bar"><div class="t2i-split-quickbutton t2i-mid-split-quickbutton" id="t2i-mid-split-quickbutton">&#x290B;</div></div>
+        <div class="t2i-bottom-bar" id="t2i_bottom_bar">
+            <div class="bottom-info-bar-container">
+                <span class="bottom-info-bar-component"><span><span class="other_info_span" id="other_info_span" style="min-height: 1rem"></span></span>
+                <span class="bottom-info-bar-component"><b>Model</b>: <select class="auto-dropdown current_model_view" onchange="autoSelectWidth(this)" id="current_model"></select></span>
+                <span class="bottom-info-bar-component" style="display:none;" id="current_presets_wrapper"><span><b>Current presets</b><span id="preset_info_slot"></span>: </span> <span id="current_preset_list_view"></span></span>
+                <span class="bottom-info-bar-component" style="display:none;" id="current_loras_wrapper"><span><b>Current LoRAs</b><span id="lora_info_slot"></span>: </span> <span id="current_lora_list_view"></span></span>
+                <span class="bottom-info-bar-component"><span><span class="num_jobs_span" id="num_jobs_span" style="min-height: 1rem"></span></span>
+            </div>
+            <ul class="nav nav-tabs" role="tablist" id="bottombartabcollection">
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link active" id="imagehistorytabclickable" data-bs-toggle="tab" href="#Image-History-Tab" aria-selected="true" role="tab">Image History</a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link" data-bs-toggle="tab" href="#Presets-Tab" aria-selected="false" tabindex="-1" role="tab">Presets</a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link" data-bs-toggle="tab" href="#Models-Tab" id="modelstabheader" aria-selected="false" tabindex="-1" role="tab">Models</a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link" data-bs-toggle="tab" href="#Vaes-Tab" aria-selected="false" tabindex="-1" role="tab">VAEs</a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link" data-bs-toggle="tab" href="#Loras-Tab" aria-selected="false" tabindex="-1" role="tab">LoRAs</a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link" data-bs-toggle="tab" href="#Embeddings-Tab" aria-selected="false" tabindex="-1" role="tab">Embeddings</a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link" data-bs-toggle="tab" href="#ControlNets-Tab" aria-selected="false" tabindex="-1" role="tab">ControlNets</a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link" data-bs-toggle="tab" href="#Wildcards-Tab" aria-selected="false" tabindex="-1" role="tab">Wildcards</a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link" data-bs-toggle="tab" href="#Tools-Tab" aria-selected="false" tabindex="-1" role="tab">Tools</a>
+                </li>
+            </ul>
+            <div class="tab-content" id="t2i_bottom_bar_content">
+                <div class="tab-pane show active genpage-bottom-tab" id="Image-History-Tab" role="tabpanel">
+                    <div class="browser_container" id="image_history"></div>
+                </div>
+                <div class="modal modal-fullscreen imageview_popup_modal_background" id="image_fullview_modal">
+                    <div id="image_fullview_modal_content" style="width:fit-content;margin:auto;"></div>
+                    <div style="position: fixed; top: 1rem; right: 10%; width: 0; height: 0">
+                        <span class="text_button" onclick="closeImageFullview()">[Close]</button>
+                    </div>
+                </div>
+                <div class="tab-pane genpage-bottom-tab" id="Presets-Tab" role="tabpanel">
+                    <button id="preset_list_create_new_button" class="refresh-button" onclick="create_new_preset_button()">Create New Preset</button>
+                    <button id="preset_list_import_button" class="refresh-button" onclick="importPresetsButton()">Import Presets</button>
+                    <button id="preset_list_export_button" class="refresh-button" onclick="exportPresetsButton()">Export All Presets</button>
+                    <button id="preset_list_apply_button" class="refresh-button" onclick="apply_presets()" title="Apply all current presets directly to your parameter list.">Apply Presets</button>
+                    @WebUtil.ModalHeader("export_presets_modal", "Export Presets")
+                        <div class="modal-body">
+                            <h5>Format:</h5>
+                            <div class="btn-group" role="group">
+                                <input type="radio" class="btn-check" name="btnradio" id="export_preset_format_json" autocomplete="off" checked="" onchange="exportPresetsButton()">
+                                <label class="btn btn-outline-primary" for="export_preset_format_json">StableSwarmUI JSON</label>
+                                <input type="radio" class="btn-check" name="btnradio" id="export_preset_format_csv" autocomplete="off" onchange="exportPresetsButton()">
+                                <label class="btn btn-outline-primary" for="export_preset_format_csv">Prompt only CSV</label>
+                            </div>
+                            <br><br>
+                            <textarea id="export_presets_textarea" style="width: 100%;" rows="10" disabled autocomplete="off"></textarea>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-primary basic-button" onclick="exportPresetsDownload()">Download</button>
+                            <button type="button" class="btn btn-secondary" onclick="closeExportPresetViewer()">Close</button>
+                        </div>
+                    @WebUtil.ModalFooter()
+                    @WebUtil.ModalHeader("import_presets_modal", "Import Presets")
+                        <div class="modal-body">
+                            <div id="import_preset_upload_container">
+                                <input type="file" id="import_preset_uploader" oninput="importPresetUpload()" /> <label for="import_preset_uploader"></i>&nbsp; Upload Preset File (JSON or CSV)</label>
+                                <textarea id="import_presets_textarea" style="width: 100%;" rows="10" oninput="importPresetsCheck()"></textarea>
+                            </div>
+                            <span class="form-check form-switch display-inline-block">
+                                <input type="checkbox" class="form-check-input" id="import_presets_overwrite" onchange="importPresetsCheck()"> <label class="form-check-label" for="import_presets_overwrite">Overwrite existing presets</label>
+                            </span>
+                        </div>
+                        <div class="modal-footer">
+                            <span id="import_preset_modal_error" class="modal_error_bottom"></span>
+                            <button type="button" class="btn btn-primary basic-button" id="import_presets_activate_button" onclick="importPresetsActivate()" disabled autocomplete="off">Import</button>
+                            <button type="button" class="btn btn-secondary" onclick="closeImportPresetViewer()">Cancel</button>
+                        </div>
+                    @WebUtil.ModalFooter()
+                    @WebUtil.ModalHeader("add_preset_modal", """Create New Preset: <input type="text" id="new_preset_name" placeholder="Preset Name" />""")
+                        <div class="modal-body">
+                            <textarea class="auto-text auto-text-block" id="preset_description" rows="3" placeholder="Preset description text..."></textarea>
+                            <span class="form-check form-switch display-inline-block">
+                                <input class="auto-slider-toggle form-check-input" type="checkbox" id="new_preset_enable_image" title="Enable/disable image" onclick="doToggleEnable('new_preset_image')"> Use Image
+                            </span>
+                            <div id="new_preset_image" class="new_preset_image"></div>
+                            <hr>
+                            <h5>Parameters in the Preset</h5>
+                            <p>Select the checkbox next to inputs you want included in the preset.<br>By default this will override values entirely. For text inputs, use <code>{value}</code> to include the current UI value instead of overriding.</p>
+                            <div id="new_preset_modal_inputs"></div>
+                            <div class="advanced_input_checkbox advanced_input_checkbox_presets">
+                                <input type="checkbox" id="preset_advanced_options_checkbox" onclick="preset_toggle_advanced()"/>
+                                <span onclick="preset_toggle_advanced_checkbox_manual()">Display Advanced Options?</span>
+                            </div>
+                            <div id="new_preset_modal_advanced_inputs" style="display:none;"></div>
+                            <div class="advanced_input_checkbox advanced_input_checkbox_presets">
+                                <input type="checkbox" id="preset_hidden_options_checkbox" onclick="preset_toggle_hidden()"/>
+                                <span onclick="preset_toggle_hidden_checkbox_manual()">Display Normally-Hidden Options?</span>
+                            </div>
+                            <div id="new_preset_modal_hidden_inputs" style="display:none;"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <span id="new_preset_modal_error" class="modal_error_bottom"></span>
+                            <button type="button" class="btn btn-primary basic-button" onclick="save_new_preset()">Save</button>
+                            <button type="button" class="btn btn-secondary" onclick="close_create_new_preset()">Cancel</button>
+                        </div>
+                    @WebUtil.ModalFooter()
+                    <div class="browser_container preset_list_container" id="preset_list"></div>
+                    <div class="sui-popover sui_popover_model" id="popover_presetmenu">
+                        <div class="sui_popover_model_button" onclick="presetMenuEdit()">Edit Preset</div>
+                        <div class="sui_popover_model_button" onclick="presetMenuDelete()">Delete Preset</div>
+                    </div>
+                </div>
+                <div class="tab-pane genpage-bottom-tab" id="Models-Tab" role="tabpanel">
+                    <div class="browser_container" id="model_list"></div>
+                </div>
+                <div class="tab-pane genpage-bottom-tab" id="Vaes-Tab" role="tabpanel">
+                    <div class="browser_container" id="vae_list"></div>
+                </div>
+                <div class="tab-pane genpage-bottom-tab" id="Loras-Tab" role="tabpanel">
+                    <div class="browser_container" id="lora_list"></div>
+                </div>
+                <div class="tab-pane genpage-bottom-tab" id="Embeddings-Tab" role="tabpanel">
+                    <div class="browser_container" id="embedding_list"></div>
+                </div>
+                <div class="tab-pane genpage-bottom-tab" id="ControlNets-Tab" role="tabpanel">
+                    <div class="browser_container" id="controlnet_list"></div>
+                </div>
+                <div class="tab-pane genpage-bottom-tab" id="Wildcards-Tab" role="tabpanel">
+                    <button id="wildcards_list_create_new_button" class="refresh-button" onclick="create_new_wildcard_button()">Create New Wildcard</button>
+                    <div class="browser_container" id="wildcard_list"></div>
+                </div>
+                <div class="tab-pane genpage-bottom-tab" id="Tools-Tab" role="tabpanel">
+                    <select class="tool-selector" id="tool_selector">
+                        <option value="" selected></option>
+                    </select>
+                    <div class="tool-container" id="tool_container">
+                    </div>
+                    <div style="height: 10rem"></div> <!-- Spacer -->
+                </div>
+            </div>
+            @WebUtil.ModalHeader("edit_model_modal", """Edit Model Metadata: <input type="text" class="modal_text_extra" id="edit_model_name" placeholder="Model Name" />""")
+                <div class="modal-body">
+                    <div>Author: <input type="text" id="edit_model_author" class="modal_text_extra" placeholder="Model Author" /></div>
+                    <div>Architecture: <input type="text" id="edit_model_type" class="modal_text_extra" placeholder="Model Type" /></div>
+                    <div>Standard Resolution: <input type="text" id="edit_model_resolution" class="modal_text_extra" placeholder="Resolution, eg 1024x1024" /></div>
+                    <div>License: <input type="text" id="edit_model_license" class="modal_text_extra" placeholder="Model License" /></div>
+                    <div>Date: <input type="text" id="edit_model_date" class="modal_text_extra" placeholder="Model Date" /></div>
+                    <div>Merged From: <input type="text" id="edit_model_merged_from" class="modal_text_extra" placeholder="Model Merged From" /></div>
+                    <div>Tags: <input type="text" id="edit_model_tags" class="modal_text_extra" placeholder="Model Tags" /></div>
+                    <div>Usage Hint: <input type="text" id="edit_model_usage_hint" class="modal_text_extra" placeholder="Model Usage Hint" /></div>
+                    <div>Trigger Phrase: <input type="text" id="edit_model_trigger_phrase" class="modal_text_extra" placeholder="Model Trigger Phrase" /></div>
+                    <div id="edit_model_is_negative_div">Is Negative Embedding: <span class="form-check form-switch display-inline-block"><input type="checkbox" id="edit_model_is_negative" class="slider-toggle form-check-input" title="If checked, embedding is for Negative Prompts. Otherwise, for the main prompt." /></span></div>
+                    Description: <textarea class="auto-text auto-text-block" id="edit_model_description" rows="3" placeholder="Model description text..."></textarea>
+                    <span class="form-check form-switch display-inline-block">
+                        <input class="auto-slider-toggle form-check-input" type="checkbox" id="edit_model_enable_image" title="Enable/disable image" onclick="doToggleEnable('edit_model_image')"> Use Image
+                    </span>
+                    <div id="edit_model_image" class="new_preset_image"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary basic-button" onclick="save_edit_model()">Save</button>
+                    <button type="button" class="btn btn-secondary" onclick="close_edit_model()">Cancel</button>
+                </div>
+            @WebUtil.ModalFooter()
+            @WebUtil.ModalHeader("edit_wildcard_modal", """Edit Wildcard: <input type="text" class="modal_text_extra" id="edit_wildcard_name" placeholder="Wildcard Name" />""")
+                <div class="modal-body">
+                    <p>Wildcards are lists of random prompt segments. One entry per line. Prompt sub-syntax is allowed (eg you can link another wildcard, or use <code>&lt;random:...&gt;</code>, or <code>&lt;preset:...&gt;</code> or anything else you want).</p>
+                    <p>Prefix a line with <code>#</code> to make it a comment (ie won't be counted as an option).</p>
+                    Options: <textarea class="auto-text auto-text-block" id="edit_wildcard_contents" rows="15" placeholder="Wildcard options (1 per line)"></textarea>
+                    <span class="form-check form-switch display-inline-block">
+                        <input class="auto-slider-toggle form-check-input" type="checkbox" id="edit_wildcard_enable_image" title="Enable/disable image" onclick="doToggleEnable('edit_wildcard_image')"> Use Image
+                    </span>
+                    <div id="edit_wildcard_image" class="new_preset_image"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary basic-button" onclick="save_edit_wildcard()">Save</button>
+                    <button type="button" class="btn btn-secondary" onclick="close_edit_wildcard()">Cancel</button>
+                </div>
+            @WebUtil.ModalFooter()
+            @WebUtil.ModalHeader("test_wildcard_modal", """Test Wildcard: <span id="test_wildcard_name"></span>""")
+                <div class="modal-body">
+                    Result: <textarea class="auto-text auto-text-block" id="test_wildcard_result" rows="3" placeholder="Result here..."></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="test_wildcard_again_button" class="btn btn-primary basic-button" onclick="test_wildcard_again()">Test Again</button>
+                    <button type="button" class="btn btn-secondary" onclick="close_test_wildcard()">Cancel</button>
+                </div>
+            @WebUtil.ModalFooter()
+        </div>
+    </div>
+    @WebServer.T2ITabBody
+    <div class="tab-pane tab-pane-vw" id="Utilities-Tab" role="tabpanel">
+        <ul class="nav nav-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <a class="nav-link active" data-bs-toggle="tab" href="#Utilities-Info-Tab" aria-selected="true" role="tab">Info</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link" data-bs-toggle="tab" id="cliptokentabbutton" href="#Utilities-CLIP-Token-Tab" aria-selected="false" tabindex="-1" role="tab">CLIP Tokenization</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link" data-bs-toggle="tab" href="#Utilities-Pickle2Safetensor-Tab" aria-selected="false" tabindex="-1" role="tab">Pickle To Safetensors</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link" data-bs-toggle="tab" href="#Utilities-LoraExtractor-Tab" id="loraextractortabbutton" aria-selected="false" tabindex="-1" role="tab">LoRA Extractor</a>
+            </li>
+        </ul>
+        <div class="tab-content">
+            <div class="tab-pane show active" id="Utilities-Info-Tab" role="tabpanel">
+                <div class="card border-secondary mb-3 card-center-container">
+                    <div class="card-header">Utilities</div>
+                    <div class="card-body">
+                        <p class="card-text">
+                            The "Utilities" tab provides a variety of general utilities and tools in the subtabs above, and the quicktools below.
+                        </p>
+                    </div>
+                </div>
+                <br>
+                <div class="card border-secondary mb-3 card-center-container">
+                    <div class="card-header">Metadata Reset</div>
+                    <div class="card-body">
+                        <p class="card-text">
+                            <div class="card-center-container">
+                                <button id="util_massmetadataclear_button" class="basic-button" onclick="util_massMetadataClear()">Reset All Metadata</button>
+                            </div>
+                            <br>If you click this button, all Model and Image metadata datastores will be reset, and they will be reloaded from source files.
+                            <br>This is useful for example if you've externally modified your model or image files and want to clean out or update Swarm's metadata tracking.
+                            <br>Note that this does not remove metadata from the models or images themselves, just from the databases that keep an efficient tracker of them.
+                            <br>This may take a moment to run.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="tab-pane" id="Utilities-CLIP-Token-Tab" role="tabpanel">
+                <div class="card border-secondary mb-3 card-center-container">
+                    <div class="card-header">CLIP Tokenizer</div>
+                    <div class="card-body">
+                        <p class="card-text">
+                            This is a tool to analyze CLIP tokenization for Stable Diffusion models.
+                            <br>All current Stable Diffusion models use the same CLIP token set, so this applies to them all.
+                            <br>Simply type some text in the box below to see how it gets tokenized.
+                            <br>It will show each text-piece, and its numerical ID.
+                        </p>
+                    </div>
+                </div>
+                <br><textarea class="auto-text clip-tokenization-input-box" id="clip_tokenization_test_textarea" rows="2" oninput="utilClipTokenize()"></textarea>
+                <br>
+                <br><span class="tokenizer-output-area" id="clip_tokenization_result_line"></span>
+            </div>
+            <div class="tab-pane" id="Utilities-Pickle2Safetensor-Tab" role="tabpanel">
+                <div class="card border-secondary mb-3 card-center-container">
+                    <div class="card-header">Pickle To Safetensors</div>
+                    <div class="card-body">
+                        <p class="card-text">
+                            This is a tool to quickle convert legacy Pickle (.pt, .ckpt, .bin) files to modern Safetensors files.
+                            <br><b>WARNING:</b> Pickle files may contain malicious code. Do not use this tool or otherwise load pickle files unless you trust their source.
+                            <br>The pickle files will be moved to a "backups" folder, and the safetensors files left in place where the pickles originally were.
+                            <br>You may delete the backups folder after confirming the new safetensors files work as intended.
+                            <br>Be aware that this may temporarily use a large amount of filespace.
+                            <br>This may take some time to process.
+                            <br>(You can continue using the UI as normal while this runs)
+                        </p>
+                    </div>
+                </div>
+                <div class="card-center-container">
+                    <input type="checkbox" id="pickle2safetensor_fp16" checked> <label for="pickle2safetensor_fp16">Convert to FP16?</label> (This will save filespace with minimal side effects, highly recommended)
+                </div>
+                <div class="card-center-container" id="pickle2safetensor_text_area">
+                </div>
+                <div class="card-center-container">
+                    <table class="spaced_util_table">
+                        <tr>
+                            <th>Type</th><th>Count</th><th>Convert</th>
+                        </tr>
+                        <tr><td>Models</td><td><span id="pickle2safetensor_stable-diffusion_count">?</span></td><td><button id="pickle2safetensor_stable-diffusion_button" class="basic-button" onclick="pickle2safetensor_run('Stable-Diffusion')">Convert Models</button></td></tr>
+                        <tr><td>LoRAs</td><td><span id="pickle2safetensor_lora_count">?</span></td><td><button id="pickle2safetensor_lora_button" class="basic-button" onclick="pickle2safetensor_run('LoRA')">Convert LoRAs</button></td></tr>
+                        <tr><td>VAEs</td><td><span id="pickle2safetensor_vae_count">?</span></td><td><button id="pickle2safetensor_vae_button" class="basic-button" onclick="pickle2safetensor_run('VAE')">Convert VAEs</button></td></tr>
+                        <tr><td>Embeddings</td><td><span id="pickle2safetensor_embedding_count">?</span></td><td><button id="pickle2safetensor_embedding_button" class="basic-button" onclick="pickle2safetensor_run('Embedding')">Convert Embeddings</button></td></tr>
+                        <tr><td>ControlNets</td><td><span id="pickle2safetensor_controlnet_count">?</span></td><td><button id="pickle2safetensor_controlnet_button" class="basic-button" onclick="pickle2safetensor_run('ControlNet')">Convert ControlNets</button></td></tr>
+                    </table>
+                </div>
+                <br>
+            </div>
+            <div class="tab-pane" id="Utilities-LoraExtractor-Tab" role="tabpanel">
+                <div class="card border-secondary mb-3 card-center-container">
+                    <div class="card-header">LoRA Extractor</div>
+                    <div class="card-body">
+                        <p class="card-text">
+                            This is a tool to extract a LoRA from the difference between two models.
+                            <br>"Base" should be whatever the common base model is, eg SDXL-1.0-Base.
+                            <br>"Other" should be the unique model with information to extract into the LoRA.
+                            <br>The closer Base is to Other, the less complex the LoRA's data will be, and the more likely it will work well with other models that were built off the same base.
+                            <br>
+                            <br>Note that LoRA Extraction is an imperfect partial process, and will lose some of the data that makes the model unique.
+                            <br>Rank is a number indicating how much detail to try to save. Higher numbers result in bigger files, and only slightly more accurate matching. Small values (eg 16) are usually sufficient.
+                        </p>
+                    </div>
+                </div>
+                <div class="card-center-container">
+                    Base model: <select class="auto-dropdown" id="lora_extractor_base_model"></select>
+                    <br>Other model: <select class="auto-dropdown" id="lora_extractor_other_model"></select>
+                    <br>Rank: <input type="number" id="lora_extractor_rank" value="16" min="1" max="320" />
+                    <br>Save as: <input type="text" id="lora_extractor_name" placeholder="LoRA Name" />
+                    <br>
+                    <br>
+                    <center>
+                        <button id="lora_extractor_button" class="basic-button" onclick="loraExtractor.run()">Extract LoRA</button>
+                    </center>
+                    <br>
+                    <div class="lora_extractor_special" id="lora_extractor_special_progressbar"><div class="image-preview-progress-overall"></div><div class="image-preview-progress-current"></div></div>
+                </div>
+                <div class="card-center-container" id="lora_extractor_text_area">
+                </div>
+            </div>
+        </div>
+        <div style="height: 10rem"></div> <!-- Spacer -->
+    </div>
+    <div class="tab-pane tab-pane-vw" id="User-Settings" role="tabpanel">
+        <ul class="nav nav-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <a class="nav-link active" data-bs-toggle="tab" href="#user-info" aria-selected="true" role="tab">User Info</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link" data-bs-toggle="tab" href="#Settings-User" id="userconfigtabbutton" aria-selected="false" tabindex="-1" role="tab">User Settings</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link" data-bs-toggle="tab" href="#Param-Config-User" id="userparamconfigtabbutton" aria-selected="false" tabindex="-1" role="tab">Parameter Configuration</a>
+            </li>
+        </ul>
+        <div class="tab-content">
+            <div class="tab-pane show active" id="user-info" role="tabpanel">
+                (TODO: info n stuff here)
+                <br>
+            </div>
+            <div class="tab-pane" id="Settings-User" role="tabpanel">
+                <div id="user_settings_container" class="settings-container"></div>
+                <div class="settings_submit_confirmer" id="usersettings_confirmer">
+                    <span class="settings_submit_confirmer_text">Save <span id="usersettings_edit_count">0</span> edited setting(s)?</span>
+                    <button type="button" class="btn btn-primary basic-button" onclick="save_user_settings()">Save</button>
+                    <button type="button" class="btn btn-secondary" onclick="cancel_user_settings_edit()">Cancel</button>
+                </div>
+            </div>
+            <div class="tab-pane" id="Param-Config-User" role="tabpanel">
+                <br>
+                <h4>Notice: this is raw internal configuration of parameters. Don't mess with this unless you know what you're doing.</h4>
+                <div id="user_param_config_container" class="settings-container"></div>
+                <div class="settings_submit_confirmer" id="user_param_config_confirmer">
+                    <span class="settings_submit_confirmer_text">Save <span id="user_param_config_edit_count">0</span> edited parameter setting(s)?</span>
+                    <button type="button" class="btn btn-primary basic-button" onclick="paramConfig.saveEdits()">Save</button>
+                    <button type="button" class="btn btn-secondary" onclick="paramConfig.cancelEdits()">Cancel</button>
+                </div>
+            </div>
+        </div>
+        <div style="height: 10rem"></div> <!-- Spacer -->
+    </div>
+    <div class="tab-pane tab-pane-vw" id="server_tab_body" role="tabpanel">
+        <ul class="nav nav-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <a class="nav-link active" data-bs-toggle="tab" href="#Server-Info" aria-selected="true" role="tab">Server Info</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link" data-bs-toggle="tab" href="#Settings-Backends" id="serverbackendstabbutton" aria-selected="false" role="tab">Backends</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link" data-bs-toggle="tab" href="#Settings-Server" id="serverconfigtabbutton" aria-selected="false" tabindex="-1" role="tab">Server Configuration</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link" data-bs-toggle="tab" href="#Server-Logs" id="logtabbutton" aria-selected="false" tabindex="-1" role="tab">Logs</a>
+            </li>
+        </ul>
+        <div class="tab-content">
+            <div class="tab-pane show active" id="Server-Info" role="tabpanel">
+                <div class="card border-secondary mb-3 card-center-container">
+                    <div class="card-header">Server</div>
+                    <div class="card-body">
+                        <p class="card-text">
+                            The "Server" tab provides access to StableSwarmUI's server internals, including:
+                            <br>&bullet; The <a href="#Settings-Backends" onclick="getRequiredElementById('serverbackendstabbutton').click()">Backends</a> tab, which allows you to configure and manage backends (the underlying engines that provide the generation core, or remote instances of swarm this instance is connected to)
+                            <br>&bullet; The <a href="#Settings-Server" onclick="getRequiredElementById('serverconfigtabbutton').click()">Server Configuration</a> tab, which allows you to configure and manage Swarm's settings (such as models directory, server host port, etc)
+                            <br>&bullet; The <a href="#Server-Logs" onclick="getRequiredElementById('logtabbutton').click()">Logs</a> tab, which allows you to view the server logs (eg if you get an error, check Logs -&gt; Debug)
+                            <br>
+                            <br>This is not to be confused with the <a href="#User-Settings" onclick="getRequiredElementById('usersettingstabbutton').click();getRequiredElementById('userconfigtabbutton').click()">User Settings</a> tab, which allows you to configure your user settings (eg save path/format, default VAE choice, etc)
+                        </p>
+                    </div>
+                </div>
+                <div class="card border-secondary mb-3 card-center-container">
+                    <div class="card-header">GPU</div>
+                    <div class="card-body">
+                        <p class="card-text">
+                            This server's GPU Info:
+                            <br>@WebUtil.CheckGPUIsSufficient()
+                        </p>
+                    </div>
+                </div>
+                <div class="card border-secondary mb-3 card-center-container">
+                    <div class="card-header">Local Network</div>
+                    <div class="card-body">
+                        <p class="card-text">
+                            @if (Program.ServerSettings.Network.Host == "127.0.0.1" || Program.ServerSettings.Network.Host == "localhost")
+                            {
+                                <p>This server is only accessible from this computer.</p>
+                            }
+                            else
+                            {
+                                string address = Utilities.GetLocalIPAddress();
+                                if (address is null)
+                                {
+                                    <p>Unknown local address, but seems to be open to LAN based on Host setting '<b>@(Program.ServerSettings.Network.Host)</b>'</p>
+                                }
+                                else
+                                {
+                                    <p>This server is likely accessible from LAN on one of the following addresses: @(address)</p>
+                                }
+                            }
+                        </p>
+                    </div>
+                </div>
+                <div class="card border-danger mb-3 card-center-container">
+                    <div class="card-header">Shutdown</div>
+                    <div class="card-body">
+                        <p class="card-text">
+                            If you want to shut down the server, click the button below.
+                            <br><button class="basic-button danger-button" onclick="shutdown_server()">Shutdown Server</button>
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="tab-pane" id="Settings-Backends" role="tabpanel">
+                <div class="backend_add_button_container">
+                    Add new backend of type:
+                    <span class="form-check form-switch display-inline-block">
+                        <input class="auto-slider-toggle form-check-input" type="checkbox" id="backends_show_advanced" title="Show Advanced Backend Types" onclick="toggleShowAdvancedBackends()" autocomplete="off"> Show Advanced
+                    </span>
+                    <div id="backend_add_buttons"></div>
+                </div>
+                <div>
+                    <button class="basic-button" onclick="restart_all_backends()">Restart All Backends</button>
+                </div>
+                <div class="backends_list" id="backends_list"></div>
+                <div style="height: 10rem"></div> <!-- Spacer -->
+            </div>
+            <div class="tab-pane" id="Settings-Server" role="tabpanel">
+                <div id="server_settings_container" class="settings-container"></div>
+                <div class="settings_submit_confirmer" id="serversettings_confirmer">
+                    <span class="settings_submit_confirmer_text">Save <span id="serversettings_edit_count">0</span> edited setting(s)?</span>
+                    <button type="button" class="btn btn-primary basic-button" onclick="save_server_settings()">Save</button>
+                    <button type="button" class="btn btn-secondary" onclick="cancel_server_settings_edit()">Cancel</button>
+                </div>
+        <div style="height: 10rem"></div> <!-- Spacer -->
+            </div>
+            <div class="tab-pane" id="Server-Logs" role="tabpanel">
+                <center>View: <select id="server_log_type_selector"></select> Filter: <input type="text" id="server_log_filter" placeholder="Filter"></input></center>
+                <div id="server_logs_container" class="server_logs_container"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="/js/exifr.min.js"></script>
+    <script src="/js/genpage/welcomemessages.js?vary=@Utilities.VaryID"></script>
+    <script src="/js/genpage/backends.js?vary=@Utilities.VaryID"></script>
+    <script src="/js/genpage/browsers.js?vary=@Utilities.VaryID"></script>
+    <script src="/js/genpage/presets.js?vary=@Utilities.VaryID"></script>
+    <script src="/js/genpage/models.js?vary=@Utilities.VaryID"></script>
+    <script src="/js/genpage/params.js?vary=@Utilities.VaryID"></script>
+    <script src="/js/genpage/utiltab.js?vary=@Utilities.VaryID"></script>
+    <script src="/js/genpage/image_editor.js?vary=@Utilities.VaryID"></script>
+    <script src="/js/genpage/main.js?vary=@Utilities.VaryID"></script>
+    <script src="/js/genpage/settings_editor.js?vary=@Utilities.VaryID"></script>
+    <script src="/js/genpage/logs.js?vary=@Utilities.VaryID"></script>
+    @WebServer.PageFooterExtra
+}
